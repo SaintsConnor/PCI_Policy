@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Docx Form</title>
+</head>
+<body>
+    <h1>Generate Docx</h1>
+    <form action="/generate-docx" method="post" enctype="multipart/form-data">
+        <label for="company_name">Company Name:</label>
+        <input type="text" id="company_name" name="company_name" required><br><br>
+        
+        <label for="author_name">Author Name:</label>
+        <input type="text" id="author_name" name="author_name" required><br><br>
+        
+        <label for="network_name">Network Name:</label>
+        <input type="text" id="network_name" name="network_name" required><br><br>
+        
+        <label for="network_desc">Network Description:</label>
+        <input type="text" id="network_desc" name="network_desc" required><br><br>
+        
+        <input type="submit" value="Generate Docx">
+    </form>
+</body>
+</html>
