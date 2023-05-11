@@ -1,69 +1,55 @@
-# IMPORT MODULES
-import shutil  # Provides higher level interface for file operations
-from datetime import date  # Provides functions for working with dates and times
-import time
-import os  # Provides a way to interact with the operating system
+from fastapi import FastAPI, Form, UploadFile
+from fastapi.responses import HTMLResponse, FileResponse
+from docx import Document
+from datetime import date
+from pathlib import Path
+import uvicorn
 
-SAQ_Type = ['A', 'C-VT']
+app = FastAPI()
 
-#Set up Variables
-Company_Name = str(input("Enter Company Name: "))  # Prompts user for company name
-iso = date.today().isoformat()  # Gets today's date in ISO format
-iso = iso.replace("-","")  # Strips hyphens from the date string
-MetaData = Company_Name + iso  # Concatenates company name and date to form metadata string
-File_Destination = "Documents/"
+TEMPLATE_DOCX_PATH = Path("templates/PCI Policy.docx")  # Path to the template docx file
 
 
-for i in range(len(SAQ_Type)-1):
-  SAQType = SAQ_Type[i]
-  if SAQType == "A" :  # If SAQ type is "A"
-    File_Name = MetaData + "_SAQ_A"
-    File_Data = File_Destination + File_Name 
-    shutil.copyfile("Templates/SAQA.txt", File_Data)  
-  elif SAQType == "A-EP" :
-    File_Name = MetaData + "_SAQ_E-IP" 
-    File_Data = File_Destination + File_Name 
-    shutil.copyfile("Templates/SAQEIP.txt", File_Data) 
-  
-  elif SAQType == "P2PE" :
-    File_Name = MetaData + "_SAQ_P2PE"  
-    File_Data = File_Destination + File_Name 
-    shutil.copyfile("Templates/SAQP2PE.txt", File_Data)  
-	
-  elif SAQType == "B" :
-  		File_Name = MetaData + "_SAQ_B"  
-	  	File_Data = File_Destination + File_Name  
-	  	shutil.copyfile("Templates/SAQB.docx", File_Data) 
+def replace_merge_fields(document, field_value, author_name, network_name, network_desc):
+    current_date = date.today().strftime('%d/%m/%Y')
 
-  elif SAQType == "B-IP":
-  		File_Name = MetaData + "_SAQ_B-IP"
-  		File_Data = File_Destination + File_Name  
-	  	shutil.copyfile("Templates/SAQB-IP.docx", File_Data)
+    for element in document._element.iter():
+        if element.tag.endswith(('}t', '}p', '}r')):
+            for child in element.iter():
+                if child.text:
+                    if '[Company]' in child.text:
+                        child.text = child.text.replace('[Company]', field_value)
+                    if '[Date]' in child.text:
+                        child.text = child.text.replace('[Date]', current_date)
+                    if '[Author]' in child.text:
+                        child.text = child.text.replace('[Author]', author_name)
+                    if '[Network]' in child.text:
+                        child.text = child.text.replace('[Network]', network_name)
 
-  elif SAQType == "C" :
-  		File_Name = MetaData + "_SAQ_C" 
-  		File_Data = File_Destination + File_Name 
-  		shutil.copyfile("Templates/SAQC.docx", File_Data) 
-
-  elif SAQType == "C-VT" :
-    File_Name = MetaData + "_SAQ_C-VT"
-    File_Data = File_Destination + File_Name 
-    shutil.copyfile("Templates/SAQC.docx", File_Data) 
-
-  elif SAQType == "D" :
-  		PROV_MER = input("For Providers or Merchant: ")
-  		if PROV_MER.lower() == "Providers" :
-    
-    			File_Name = MetaData + "_SAQ_D_Providers" 
-    			File_Data = File_Destination + File_Name 
-    			shutil.copyfile("Templates/SAQDProvider.docx", File_Data) 
-      
-  else:
-    			File_Name = MetaData + "_SAQ_D_Merchant" 
-    			File_Data = File_Destination + File_Name 
-    			shutil.copyfile("Templates/SAQDMerchant.docx", File_Data) 
+                    if '[Desc]' in child.text:
+                        child.text = child.text.replace('[Desc]', network_desc)
 
 
-print("Reports Generated")
-time.sleep(10)
-os.system("clear")  # Clears the terminal screen again
+
+@app.post("/generate-docx")
+async def generate_docx(
+    company_name: str = Form(...),
+    author_name: str = Form(...),
+    network_name: str = Form(...),
+    network_desc: str = Form(...),
+):
+    # Open the template Word document
+    template_doc = Document(TEMPLATE_DOCX_PATH)
+
+    # Replace merge fields in the template
+    replace_merge_fields(template_doc, company_name, author_name, network_name, network_desc)
+
+    # Generate a new file name
+    new_file_name = f"{company_name}_PCI_Policy.docx"
+
+    # Save the modified document with the new name
+    template_doc.save(new_file_name)
+
+    return FileResponse(new_file_name, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=3333)
